@@ -10,7 +10,8 @@
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
     "db:init": "tsx src/scripts/runSql.ts ../database/init.sql",
-    "db:seed": "tsx src/scripts/runSql.ts ../database/seed.sql"
+    "db:seed": "tsx src/scripts/runSql.ts ../database/seed.sql",
+    "db:migrar": "tsx src/scripts/runSql.ts ../database/migracion_parte2.sql"
   },
   "dependencies": {
     "cors": "2.8.5",

@@ -1,6 +1,6 @@
 /**
  * Ejecuta un archivo .sql con separadores GO (alternativa a sqlcmd).
- * Uso: npm run db:init   |   npm run db:seed
+ * Uso: npm run db:init   |   npm run db:seed   |   npm run db:migrar
  * Se conecta a "master" porque init.sql crea la base de datos.
  */
 import { readFileSync } from 'node:fs';

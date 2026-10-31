@@ -13,6 +13,13 @@ EXEC dbo.sp_CrearExpediente N'Alias Demo B',   N'Consulta ficticia sobre despido
 DECLARE @A INT = (SELECT Id FROM dbo.Expedientes WHERE Solicitante = N'Persona Demo A');
 EXEC dbo.sp_AgregarActividad @A, N'Entrevista inicial con la persona solicitante', N'Reunión';
 EXEC dbo.sp_PasarASeguimiento @A;
+
+-- Parte 2: expediente ya Cerrado, listo para demostrar la reapertura.
+EXEC dbo.sp_CrearExpediente N'Alias Demo C', N'Consulta ficticia sobre arrendamiento', N'Lic. Responsable Uno', N'Civil';
+DECLARE @C INT = (SELECT Id FROM dbo.Expedientes WHERE Solicitante = N'Alias Demo C');
+EXEC dbo.sp_AgregarActividad @C, N'Revisión del contrato ficticio', N'Documento';
+EXEC dbo.sp_PasarASeguimiento @C;
+EXEC dbo.sp_CerrarExpediente @C, N'Acuerdo ficticio entre las partes';
 GO
 PRINT N'Datos de demostración cargados.';
 GO
