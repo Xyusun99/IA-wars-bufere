@@ -15,6 +15,10 @@ export interface Expediente {
   fechaCierre: string | null;
   motivoCierre: string | null;
   totalActividades: number;
+  /** Parte 2: actividades desde la última reapertura (o desde la apertura). Cerrar exige >= 1. */
+  actividadesCicloActual: number;
+  totalCierres: number;
+  totalReaperturas: number;
 }
 
 export interface NuevoExpediente {
