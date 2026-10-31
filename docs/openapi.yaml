@@ -1,0 +1,248 @@
+openapi: 3.0.3
+info:
+  title: Bufete Popular - API de Expedientes (prototipo, datos ficticios)
+  version: 1.0.0
+  description: |
+    CONTRATO ÚNICO entre backend (Daniel, Jaqui) y frontend (Dayana, Bagner).
+    Nadie cambia este archivo sin avisar al equipo; los cambios los integra mavasquez.
+    Todas las fechas se devuelven en ISO 8601. Los textos obligatorios se validan con trim().
+servers:
+  - url: http://localhost:4000/api
+tags:
+  - name: Expedientes
+    description: Apertura, consulta y búsqueda (Daniel)
+  - name: Seguimiento
+    description: Actividades, historial, estados y cierre (Jaqui)
+
+paths:
+  /health:
+    get:
+      summary: Verifica API y conexión a SQL Server
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, properties: { ok: { type: boolean }, db: { type: string } } }
+
+  /expedientes:
+    get:
+      tags: [Expedientes]
+      summary: Lista expedientes o busca por identificador (código/id) o nombre/alias
+      parameters:
+        - in: query
+          name: q
+          required: false
+          schema: { type: string }
+          description: Texto de búsqueda. Coincide con código (EXP-00001), id numérico o solicitante (contiene, sin distinguir mayúsculas).
+        - in: query
+          name: estado
+          required: false
+          schema: { $ref: "#/components/schemas/Estado" }
+          description: Filtro opcional por estado.
+      responses:
+        "200":
+          description: Lista (puede ser vacía; el frontend muestra "No se encontraron expedientes").
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Expediente" } }
+    post:
+      tags: [Expedientes]
+      summary: Abre un expediente (estado inicial Abierto; id, código y fecha automáticos)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NuevoExpediente" }
+      responses:
+        "201":
+          description: Creado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Expediente" }
+        "400": { $ref: "#/components/responses/ErrorValidacion" }
+
+  /expedientes/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [Expedientes]
+      summary: Detalle de un expediente
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Expediente" }
+        "404": { $ref: "#/components/responses/NoEncontrado" }
+
+  /expedientes/{id}/historial:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [Seguimiento]
+      summary: Historial cronológico (actividades + cambios de estado), ordenado por "orden" ascendente
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/EntradaHistorial" } }
+        "404": { $ref: "#/components/responses/NoEncontrado" }
+
+  /expedientes/{id}/actividades:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    post:
+      tags: [Seguimiento]
+      summary: Agrega una actividad (solo Abierto o En seguimiento)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NuevaActividad" }
+      responses:
+        "201":
+          description: Creada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Actividad" }
+        "400": { $ref: "#/components/responses/ErrorValidacion" }
+        "404": { $ref: "#/components/responses/NoEncontrado" }
+        "409": { $ref: "#/components/responses/Conflicto" }
+
+  /expedientes/{id}/seguimiento:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    post:
+      tags: [Seguimiento]
+      summary: Cambia Abierto -> En seguimiento (acción explícita del usuario)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Expediente" }
+        "404": { $ref: "#/components/responses/NoEncontrado" }
+        "409": { $ref: "#/components/responses/Conflicto" }
+
+  /expedientes/{id}/cierre:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    post:
+      tags: [Seguimiento]
+      summary: Cambia En seguimiento -> Cerrado (requiere >= 1 actividad y motivo no vacío)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [motivo]
+              properties:
+                motivo: { type: string, example: "Asunto resuelto mediante conciliación ficticia" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Expediente" }
+        "400": { $ref: "#/components/responses/ErrorValidacion" }
+        "404": { $ref: "#/components/responses/NoEncontrado" }
+        "409": { $ref: "#/components/responses/Conflicto" }
+        "422": { $ref: "#/components/responses/ReglaNegocio" }
+
+components:
+  parameters:
+    Id:
+      in: path
+      name: id
+      required: true
+      schema: { type: integer, minimum: 1 }
+
+  schemas:
+    Estado:
+      type: string
+      enum: [Abierto, En seguimiento, Cerrado]
+    Categoria:
+      type: string
+      enum: [Civil, Familiar, Laboral]
+      nullable: true
+
+    NuevoExpediente:
+      type: object
+      required: [solicitante, asunto, responsable]
+      properties:
+        solicitante: { type: string, maxLength: 150, example: "Alias Demo" }
+        asunto:      { type: string, maxLength: 500, example: "Consulta ficticia sobre pensión" }
+        responsable: { type: string, maxLength: 150, example: "Lic. Responsable" }
+        categoria:   { $ref: "#/components/schemas/Categoria" }
+
+    Expediente:
+      type: object
+      properties:
+        id:               { type: integer, example: 1 }
+        codigo:           { type: string, example: "EXP-00001" }
+        solicitante:      { type: string }
+        asunto:           { type: string }
+        responsable:      { type: string }
+        categoria:        { $ref: "#/components/schemas/Categoria" }
+        estado:           { $ref: "#/components/schemas/Estado" }
+        fechaApertura:    { type: string, format: date-time }
+        fechaCierre:      { type: string, format: date-time, nullable: true }
+        motivoCierre:     { type: string, nullable: true }
+        totalActividades: { type: integer }
+
+    NuevaActividad:
+      type: object
+      required: [descripcion]
+      properties:
+        descripcion: { type: string, maxLength: 1000 }
+        tipo:        { type: string, nullable: true, example: "Reunión" }
+
+    Actividad:
+      type: object
+      properties:
+        id:           { type: integer }
+        expedienteId: { type: integer }
+        descripcion:  { type: string }
+        tipo:         { type: string, nullable: true }
+        fecha:        { type: string, format: date-time }
+        orden:        { type: integer }
+
+    EntradaHistorial:
+      type: object
+      properties:
+        expedienteId:   { type: integer }
+        orden:          { type: integer }
+        tipoEntrada:    { type: string, enum: [ACTIVIDAD, ESTADO] }
+        fecha:          { type: string, format: date-time }
+        descripcion:    { type: string }
+        estadoAnterior: { type: string, nullable: true }
+        estadoNuevo:    { type: string, nullable: true }
+        motivo:         { type: string, nullable: true }
+        tipoActividad:  { type: string, nullable: true }
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:    { type: string, example: "Revise los campos marcados." }
+        detalles:
+          type: object
+          additionalProperties: { type: string }
+          example: { solicitante: "El nombre o alias del solicitante es obligatorio." }
+
+  responses:
+    ErrorValidacion:
+      description: Datos inválidos (campos vacíos o solo espacios)
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    NoEncontrado:
+      description: El expediente no existe
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    Conflicto:
+      description: El estado actual no permite la acción (p. ej. expediente cerrado)
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    ReglaNegocio:
+      description: Regla no cumplida (p. ej. cerrar sin actividades)
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }

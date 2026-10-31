@@ -1,0 +1,29 @@
+{
+  "name": "bufete-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "API REST (Express + TypeScript + SQL Server) - prototipo con datos ficticios",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "db:init": "tsx src/scripts/runSql.ts ../database/init.sql",
+    "db:seed": "tsx src/scripts/runSql.ts ../database/seed.sql"
+  },
+  "dependencies": {
+    "cors": "2.8.5",
+    "dotenv": "16.4.5",
+    "express": "4.21.1",
+    "mssql": "11.0.1"
+  },
+  "devDependencies": {
+    "@types/cors": "2.8.17",
+    "@types/express": "4.17.21",
+    "@types/mssql": "9.1.5",
+    "@types/node": "20.16.11",
+    "tsx": "4.19.1",
+    "typescript": "5.6.3"
+  }
+}
