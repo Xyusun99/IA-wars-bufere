@@ -3,6 +3,8 @@ import { Link, useLocation, useParams } from 'react-router-dom';
 import { ApiError } from '../api/client';
 import { obtenerExpediente, obtenerHistorial, pasarASeguimiento } from '../api/seguimiento';
 import ActividadForm from '../components/ActividadForm';
+import CierreForm from '../components/CierreForm';
+import ReaperturaForm from '../components/ReaperturaForm';
 import Alert from '../components/Alert';
 import EstadoBadge from '../components/EstadoBadge';
 import Historial from '../components/Historial';
@@ -21,12 +23,13 @@ function DetalleExpediente({ id }: { id: string | undefined }) {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [guardandoActividad, setGuardandoActividad] = useState(false);
+  const [cerrando, setCerrando] = useState(false);
   const [pasando, setPasando] = useState(false);
   const [errorAccion, setErrorAccion] = useState<string | null>(null);
   const [exito, setExito] = useState<string | null>(null);
   const accionPendiente = useRef(false);
   const solicitud = useRef(0);
-  const ocupado = cargando || pasando || guardandoActividad;
+  const ocupado = cargando || pasando || guardandoActividad || cerrando;
   const mensaje = typeof location.state?.mensaje === 'string' ? location.state.mensaje : null;
 
   const recargar = useCallback(async () => {
@@ -110,6 +113,8 @@ function DetalleExpediente({ id }: { id: string | undefined }) {
                 </>
               )}
             </dl>
+            {expediente.totalCierres > 0 && <p>Cierres registrados: {expediente.totalCierres}</p>}
+            {expediente.totalReaperturas > 0 && <p>Reaperturas: {expediente.totalReaperturas}</p>}
           </div>
           {expediente.estado === 'Abierto' && (
             <div className="card">
@@ -130,6 +135,27 @@ function DetalleExpediente({ id }: { id: string | undefined }) {
             <h2>Historial</h2>
             <Historial entradas={historial} />
           </div>
+          {expediente.estado === 'En seguimiento' && (
+            <CierreForm expedienteId={expediente.id} actividadesCicloActual={expediente.actividadesCicloActual}
+              disabled={ocupado} onEnviandoChange={setCerrando}
+              onCerrado={async (cerrado) => {
+                setExpediente(cerrado);
+                setErrorAccion(null);
+                setExito('Expediente cerrado.');
+                await recargar();
+              }} />
+          )}
+          {expediente.estado === 'Cerrado' && (
+            <>
+              <Alert tipo="info">Expediente cerrado: no admite nuevas actividades. Puede reabrirlo si recibió nueva información.</Alert>
+              {!ocupado && <ReaperturaForm expedienteId={expediente.id} onReabierto={(reabierto) => {
+                setExpediente(reabierto);
+                setErrorAccion(null);
+                setExito('Expediente reabierto.');
+                void recargar();
+              }} />}
+            </>
+          )}
         </>
       )}
     </section>

@@ -8,11 +8,12 @@ export default function Historial({ entradas }: { entradas: EntradaHistorial[] }
     <ul className="timeline">
       {entradas.map((entrada) => {
         const esEstado = entrada.tipoEntrada === 'ESTADO';
+        const esReapertura = esEstado && entrada.estadoAnterior === 'Cerrado';
         return (
           <li key={`${entrada.expedienteId}-${entrada.orden}`}
             className={`timeline__item${esEstado ? ' timeline__item--estado' : ''}`}>
             <strong>
-              {esEstado ? 'Cambio de estado' : 'Actividad'}
+              {esReapertura ? 'Reapertura' : esEstado ? 'Cambio de estado' : 'Actividad'}
               {!esEstado && entrada.tipoActividad ? ` · ${entrada.tipoActividad}` : ''}
             </strong>
             <div className="timeline__meta">{formatFecha(entrada.fecha ?? null)}</div>
