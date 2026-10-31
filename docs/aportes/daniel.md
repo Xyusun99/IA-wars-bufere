@@ -27,4 +27,28 @@
 | Reiniciar el backend y repetir la búsqueda | Los datos se conservan | Cumple |
 | Fecha de apertura | **Desfase de 6 horas:** creado a las 9:13 a. m., devuelto como `09:13:49.517Z` y leído como 3:13 a. m. Ocurre en `config/db.ts`, archivo compartido | No cumple |
 
-**No comprobado:** los campos de la Parte 2 (la BD local no tiene la migración) ni el recorrido desde la interfaz.
+## Parte 2: compatibilidad y regresión (31/10/2026, 09:24)
+**Revisado:** `migracion_parte2.sql`, `openapi.yaml` (esquema `Expediente`) y mis consultas, sobre `main` en `fe9885c`. La migración se aplicó con Windows Authentication y conservó los datos: 5 expedientes y 5 entradas de historial antes y después.
+
+**Cambios necesarios en mis archivos: ninguno.** Las consultas usan `SELECT *` sobre `vw_Expedientes`, y `POST`, `GET /` y `GET /:id` devuelven `actividadesCicloActual`, `totalCierres` y `totalReaperturas` como enteros. Los nombres y tipos de todos los campos coinciden con el esquema (`typecheck` y `build` sin errores).
+
+| Recorrido | Vía | Resultado observado | Estado |
+|---|---|---|---|
+| 1. Apertura | API | `EXP-00006` y `EXP-00007` con 201; vacíos, espacios y tab con 400 por campo | Cumple |
+| 2. Consulta | API | Código e id: 1 resultado; alias: 2; sin coincidencias: `[]`; detalle: 200, 404 y 400. El historial no se pudo abrir (404, API de seguimiento no integrada) | Parcial |
+| 3. Seguimiento y cierre | API | `historial`, `actividades`, `seguimiento` y `cierre` responden 404: en `fe9885c` no está la API de Jaqui | No verificable |
+| 4. Rechazos de reapertura | API | Abierto y En seguimiento: 409; inexistente: 404; motivo vacío o con espacios: 400; reabrir dos veces: 409 | Cumple |
+| 4. Reapertura válida | API | 200, `EXP-00008` En seguimiento, mismo id y código; `GET /` y `GET /:id`: ciclo 0, cierres 1, reaperturas 1; `fechaCierre` y `motivoCierre` en `null` | Cumple |
+| 4. Actividad y nuevo cierre | **SQL** | Sin actividad nueva: error 50422; con actividad: cierra. `GET /:id`: ciclo 1, cierres 2, reaperturas 1 | Parcial (no probado por API) |
+| 4. Trazabilidad | **SQL** | `vw_HistorialExpediente` conserva 2 actividades, ambos cierres y la reapertura, con fecha y motivo | Parcial (no probado por API) |
+| Persistencia | API | Tras reiniciar el backend, `EXP-00008` sigue Cerrado con cierres 2 y reaperturas 1 | Cumple |
+
+**Preparación por SQL en el recorrido 4:** pasar a En seguimiento, agregar actividades y cerrar se hizo con los procedimientos almacenados, porque la API de seguimiento no estaba integrada.
+
+**No ejecutado:**
+- Recorridos 3 y 4 desde la interfaz, y recarga en el navegador: no se levantó el frontend y falta la API de seguimiento.
+- Historial por API: depende de la API de Jaqui.
+
+**Problemas encontrados:**
+- El desfase de 6 horas sigue: `EXP-00008` se creó a las 9:24 a. m. y se devuelve como `09:24:51.606Z`, que se lee como 3:24 a. m. (`config/db.ts`, archivo compartido).
+- El `500` por JSON mal formado no se repitió en esta ronda. `errorHandler.ts` no cambió, así que sigue pendiente.
