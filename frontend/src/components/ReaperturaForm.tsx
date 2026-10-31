@@ -26,7 +26,7 @@ export default function ReaperturaForm({ expedienteId, onReabierto }: Props) {
     setErrorGeneral(null);
 
     if (motivo.trim() === '') {
-      setErrorCampo('Ingrese el motivo de la reapertura.');
+      setErrorCampo('El motivo de reapertura es obligatorio.');
       return;
     }
     setErrorCampo(null);
