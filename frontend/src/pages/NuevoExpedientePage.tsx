@@ -8,6 +8,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ApiError } from '../api/client';
 import { crearExpediente } from '../api/expedientes';
 import Alert from '../components/Alert';
+import Icon from '../components/Icon';
 import type { Categoria, NuevoExpediente } from '../types';
 
 type Campo = 'solicitante' | 'asunto' | 'responsable' | 'categoria';
@@ -119,7 +120,7 @@ export default function NuevoExpedientePage() {
         <form className="form" onSubmit={enviar} noValidate>
           <div className={claseCampo('solicitante')}>
             <label htmlFor="solicitante" className="required">
-              Nombre ficticio o alias del solicitante
+              <Icon name="user" /> Nombre ficticio o alias del solicitante
             </label>
             <input
               {...props('solicitante')}
@@ -133,7 +134,7 @@ export default function NuevoExpedientePage() {
 
           <div className={claseCampo('asunto')}>
             <label htmlFor="asunto" className="required">
-              Descripción breve del asunto
+              <Icon name="fileText" /> Descripción breve del asunto
             </label>
             <textarea
               {...props('asunto')}
@@ -149,7 +150,7 @@ export default function NuevoExpedientePage() {
 
           <div className={claseCampo('responsable')}>
             <label htmlFor="responsable" className="required">
-              Nombre del responsable
+              <Icon name="briefcase" /> Nombre del responsable
             </label>
             <input
               {...props('responsable')}
@@ -162,7 +163,9 @@ export default function NuevoExpedientePage() {
           </div>
 
           <div className={claseCampo('categoria')}>
-            <label htmlFor="categoria">Categoría</label>
+            <label htmlFor="categoria">
+              <Icon name="tag" /> Categoría
+            </label>
             <select
               {...props('categoria')}
               value={valores.categoria}
@@ -181,7 +184,7 @@ export default function NuevoExpedientePage() {
 
           <div className="toolbar">
             <button type="submit" className="btn btn--primary" disabled={guardando}>
-              {guardando ? 'Guardando...' : 'Crear expediente'}
+              <Icon name="check" /> {guardando ? 'Guardando...' : 'Crear expediente'}
             </button>
             <Link to="/" className="btn">
               Cancelar

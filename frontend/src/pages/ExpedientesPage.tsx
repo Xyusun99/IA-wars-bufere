@@ -9,6 +9,7 @@ import { ApiError } from '../api/client';
 import { listarExpedientes } from '../api/expedientes';
 import Alert from '../components/Alert';
 import EstadoBadge from '../components/EstadoBadge';
+import Icon from '../components/Icon';
 import type { Estado, Expediente } from '../types';
 import { formatFecha } from '../utils/format';
 
@@ -75,7 +76,7 @@ export default function ExpedientesPage() {
       <div className="toolbar" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
         <h1 style={{ margin: 0 }}>Expedientes</h1>
         <Link to="/expedientes/nuevo" className="btn btn--primary">
-          Nuevo expediente
+          <Icon name="plus" /> Nuevo expediente
         </Link>
       </div>
 
@@ -101,10 +102,10 @@ export default function ExpedientesPage() {
           ))}
         </select>
         <button type="submit" className="btn btn--primary" disabled={cargando}>
-          Buscar
+          <Icon name="search" /> Buscar
         </button>
         <button type="button" className="btn" onClick={limpiar}>
-          Limpiar
+          <Icon name="x" /> Limpiar
         </button>
       </form>
 
@@ -134,15 +135,38 @@ export default function ExpedientesPage() {
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Identificador</th>
-                    <th>Solicitante</th>
-                    <th>Responsable</th>
-                    <th>Estado</th>
-                    <th>Apertura</th>
+                    <th className="table__index" scope="col">
+                      #
+                    </th>
+                    <th>
+                      <span className="th-icon">
+                        <Icon name="hash" /> Identificador
+                      </span>
+                    </th>
+                    <th>
+                      <span className="th-icon">
+                        <Icon name="user" /> Solicitante
+                      </span>
+                    </th>
+                    <th>
+                      <span className="th-icon">
+                        <Icon name="briefcase" /> Responsable
+                      </span>
+                    </th>
+                    <th>
+                      <span className="th-icon">
+                        <Icon name="flag" /> Estado
+                      </span>
+                    </th>
+                    <th>
+                      <span className="th-icon">
+                        <Icon name="calendar" /> Apertura
+                      </span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {expedientes.map((exp) => (
+                  {expedientes.map((exp, indice) => (
                     <tr
                       key={exp.id}
                       tabIndex={0}
@@ -150,6 +174,7 @@ export default function ExpedientesPage() {
                       onClick={() => navigate(`/expedientes/${exp.id}`)}
                       onKeyDown={(e) => abrirConTeclado(e, exp.id)}
                     >
+                      <td className="table__index">{indice + 1}</td>
                       <td>
                         <Link to={`/expedientes/${exp.id}`} onClick={(e) => e.stopPropagation()}>
                           {exp.codigo}
