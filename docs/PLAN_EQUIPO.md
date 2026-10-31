@@ -22,14 +22,21 @@ Contrato único backend ↔ frontend: [`docs/openapi.yaml`](openapi.yaml)
 |---|---|---|
 | **T+0 – 10** | mavasquez sube `main` y las 5 ramas. Todos clonan, instalan, crean `.env` y ejecutan `init.sql`. Este commit inicial ya incluye la **ficha de análisis (hito 1)** | Todos |
 | **T+10 – 40** | **Prompt 1** de cada uno → commit + push | Todos |
-| **T+40 – 45** | Daniel y Jaqui abren PR → mavasquez hace el merge a `main` | Backend + mavasquez |
+| **T+40 – 45** | Daniel y Jaqui abren PR → mavasquez hace el merge a `main` **(incluye la reapertura de la Parte 2)**. Todos: `git pull origin main` + **`npm run db:migrar`** una vez | Backend + mavasquez |
 | **T+45 – 65** | **Prompt 2**. Dayana y Bagner hacen `git pull origin main` para probar contra la API real → commit + push → PR | Todos |
-| **T+65 – 75** | mavasquez hace el merge del frontend. **Todos prueban el recorrido completo** en la máquina de mavasquez | Todos |
+| **T+65 – 75** | mavasquez hace el merge del frontend. **Todos prueban los recorridos 1 a 4** (el 4 es la reapertura) en la máquina de mavasquez | Todos |
 | **T+75 – 82** | **Prompt 3** (aportes: decisión con IA + comprobación) → commit + PR | Todos |
 | **T+82 – 88** | mavasquez consolida el README (decisiones, comprobaciones, limitaciones), hace el **commit final** y el tag `v1.0` | mavasquez |
 | **T+88 – 90** | Enviar enlace del repo + hash del commit final. App y README abiertos para la demo | mavasquez |
 
 > ⚠️ Si van atrasados, **lo prioritario es que el recorrido funcione** (sección 3 del enunciado). Lo opcional (filtro por estado, categoría, tipo) se omite.
+
+### Parte 2 (reapertura · 10 pts) — qué cambió para cada uno
+> Guía completa paso a paso: [`docs/PARTE2_CAMBIOS.md`](PARTE2_CAMBIOS.md)
+- **Daniel, Jaqui, Dayana:** nada en su código. Solo `git pull origin main` y `cd backend && npm run db:migrar` (no borra datos; **no** vuelvan a ejecutar `init.sql`).
+- **Bagner:** en B2, el paso 4 cambió y el paso 3 usa `actividadesCicloActual` (ver su prompt actualizado).
+- **mavasquez:** ya hizo la BD (`sp_ReabrirExpediente`, migración), el endpoint `POST /expedientes/:id/reapertura`, `api/reapertura.ts` y `components/ReaperturaForm.tsx`. Tag `pre-parte2` = commit previo al anuncio.
+- `Expediente` trae 3 campos nuevos: `actividadesCicloActual`, `totalCierres`, `totalReaperturas`.
 
 ---
 
@@ -45,6 +52,7 @@ git checkout feature/<TuNombre>          # Daniel | Jaqui | Dayana | Bagner | ma
 cd backend && cp .env.example .env && npm install && cd ..
 cd frontend && npm install && cd ..
 sqlcmd -S localhost -E -f 65001 -i database/init.sql   # o: cd backend && npm run db:init
+# Si creaste la BD antes de la Parte 2: cd backend && npm run db:migrar   (no borra datos)
 
 # Después de cada prompt
 git add .
@@ -138,10 +146,12 @@ Cada rama solo debería tocar sus archivos (ver tabla 1.5 del README.md). Dame:
 ```text
 Actúa como redactor técnico. Te paso README.md y los archivos docs/aportes/daniel.md, jaqui.md, dayana.md,
 bagner.md y mavasquez.md. Necesito:
-1. Llenar la tabla "3. Decisiones y uso razonado de la IA" con LAS 3 decisiones más relevantes
-   (al menos una de diseño/datos, una de reglas y una de interfaz o pruebas). Columnas: Decisión o necesidad |
+1. Llenar la tabla "3. Decisiones y uso razonado de la IA" con 3 decisiones. La fila 1 es OBLIGATORIAMENTE
+   la reapertura (Parte 2): cambio, impacto, aporte de la IA, solución elegida y cómo se comprobó
+   (tomarla de docs/aportes/mavasquez.md). Las otras 2: las más relevantes de los aportes. Columnas: Decisión o necesidad |
    Aporte de la IA | Decisión del equipo y razón (qué aceptamos/modificamos/descartamos) | Cómo se comprobó.
-2. Llenar la tabla "4. Lista de comprobación" con el resultado OBSERVADO real de los aportes y
+2. Llenar la tabla "4. Lista de comprobación" (recorridos 1 a 4 + persistencia; 1 a 3 repetidos como
+   regresión después de la Parte 2) con el resultado OBSERVADO real de los aportes y
    Cumple / Parcial / No cumple. NO inventes resultados: si falta evidencia, pon "Parcial" y explica.
 3. Completar "Expedientes de demostración", "Limitaciones conocidas" y "Recursos externos".
 No cambies la sección 1 salvo que haya cambiado una decisión o responsabilidad.
@@ -403,12 +413,18 @@ Sigue en el mismo proyecto. Agrega acciones al detalle:
 2. Botón "Pasar a En seguimiento" visible solo si estado === 'Abierto', con window.confirm antes de ejecutar.
    Al terminar: Alert de éxito y recargar.
 3. frontend/src/components/CierreForm.tsx visible solo si estado === 'En seguimiento': textarea "Motivo de cierre*".
-   Si totalActividades === 0, mostrar un aviso "Debe registrar al menos una actividad antes de cerrar" y
-   deshabilitar el botón. Validar el motivo con trim(). Confirmar antes de cerrar. Mostrar cualquier
+   Si actividadesCicloActual === 0 (actividades desde la última reapertura), mostrar el aviso
+   "Debe registrar al menos una actividad antes de cerrar" y deshabilitar el botón. Validar el motivo con trim(). Confirmar antes de cerrar. Mostrar cualquier
    ApiError del backend (409/422/400) en un Alert de error.
-4. Si estado === 'Cerrado': ocultar ActividadForm y las acciones, y mostrar un Alert info
-   "Expediente cerrado: solo consulta. No admite nuevas actividades ni cambios de estado."
-5. Revisa críticamente: aunque la UI oculte botones, ¿qué protege la regla si alguien llama la API?
+4. (PARTE 2) Si estado === 'Cerrado': ocultar ActividadForm, el botón de seguimiento y CierreForm; mostrar
+   un Alert info "Expediente cerrado: no admite nuevas actividades. Puede reabrirlo si recibió nueva
+   información." y debajo el componente YA HECHO:
+     import ReaperturaForm from '../components/ReaperturaForm';
+     <ReaperturaForm expedienteId={exp.id} onReabierto={() => { setMensaje('Expediente reabierto.'); recargar(); }} />
+5. (PARTE 2) En la ficha, si totalCierres > 0 mostrar "Cierres registrados: N". Si fechaCierre es null pero
+   totalCierres > 0, el expediente fue reabierto: los cierres anteriores (fecha y motivo) se ven en el historial.
+   En Historial.tsx, una entrada ESTADO con estadoAnterior === 'Cerrado' es una reapertura: etiqueta "Reapertura".
+6. Revisa críticamente: aunque la UI oculte botones, ¿qué protege la regla si alguien llama la API?
    (respuesta esperada: los SPs de la BD). Explícalo en 2 líneas para la demo.
 ```
 **Commit:** `feat(ui): actividades, cambio a seguimiento y cierre con validaciones` → `git pull origin main` → probar → push → **PR a main**.
@@ -419,16 +435,19 @@ Escribe docs/aportes/bagner.md (máximo 20 líneas) con:
 ## Decisión con IA
 | Decisión o necesidad | Aporte de la IA | Decisión del equipo y razón | Cómo se comprobó |
 (una fila sobre cómo distinguir actividades de cambios de estado en el historial, o sobre bloquear acciones en cerrado)
-## Comprobaciones (Recorrido 3 Seguimiento y cierre + persistencia al recargar)
+## Comprobaciones (Recorrido 3 Seguimiento y cierre, Recorrido 4 Reapertura + persistencia al recargar)
 Lo que hice y lo que OBSERVÉ, con Cumple/Parcial/No cumple: <DESCRIBE TUS PRUEBAS>
 ```
 **Commit:** `docs: aporte de Bagner (decisión y pruebas de seguimiento/cierre)`
 
 ---
 
-## 6. Guion de demo (90 s) — ensayarlo una vez
+## 6. Guion de demo (3 min incluida la transición) — ensayarlo una vez
 1. (Dayana) Crear un expediente con un campo en blanco → error por campo → corregir → éxito con código.
 2. (Dayana) Buscar por código, buscar por alias, buscar "zzz" → sin resultados.
 3. (Bagner) Abrir el detalle → agregar actividad → pasar a En seguimiento → intentar cerrar sin motivo → cerrar con motivo → ver que ya no se pueden agregar actividades → historial.
-4. (Cualquiera) Recargar con F5 → los datos siguen ahí.
-5. (mavasquez o Jaqui) Explicar **una decisión** y cómo se comprobó: reglas en los SPs + prueba de cierre inválido.
+4. (mavasquez) **Reapertura:** en el expediente cerrado → reabrir con motivo vacío (rechazo) → reabrir con
+   motivo → agregar actividad → cerrar de nuevo → historial con **ambos cierres** y la reapertura.
+   (Si falta tiempo, usar `Alias Demo C` del seed, que ya está Cerrado.)
+5. (Cualquiera) Recargar con F5 → los datos y ambos cierres siguen ahí.
+6. (mavasquez o Jaqui) Explicar **una decisión** (ideal: la reapertura sin perder cierres, o) y cómo se comprobó: reglas en los SPs + prueba de cierre inválido.

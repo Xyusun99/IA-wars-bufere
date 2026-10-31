@@ -29,6 +29,7 @@ DROP PROCEDURE IF EXISTS dbo.sp_CrearExpediente;
 DROP PROCEDURE IF EXISTS dbo.sp_AgregarActividad;
 DROP PROCEDURE IF EXISTS dbo.sp_PasarASeguimiento;
 DROP PROCEDURE IF EXISTS dbo.sp_CerrarExpediente;
+DROP PROCEDURE IF EXISTS dbo.sp_ReabrirExpediente;
 DROP TABLE IF EXISTS dbo.HistorialEstados;
 DROP TABLE IF EXISTS dbo.Actividades;
 DROP TABLE IF EXISTS dbo.Expedientes;
@@ -51,6 +52,8 @@ CREATE TABLE dbo.Expedientes (
     Categoria     NVARCHAR(20)  NULL,       -- opcional
     Estado        NVARCHAR(20)  NOT NULL CONSTRAINT DF_Expedientes_Estado DEFAULT (N'Abierto'),
     FechaApertura DATETIME2(3)  NOT NULL CONSTRAINT DF_Expedientes_Fecha DEFAULT (SYSDATETIME()),
+    -- Cierre VIGENTE. Al reabrir se limpian; TODOS los cierres (con fecha y
+    -- motivo) quedan para siempre en HistorialEstados, que no se edita.
     FechaCierre   DATETIME2(3)  NULL,
     MotivoCierre  NVARCHAR(500) NULL,
 
@@ -111,7 +114,16 @@ SELECT
     e.FechaApertura AS fechaApertura,
     e.FechaCierre   AS fechaCierre,
     e.MotivoCierre  AS motivoCierre,
-    (SELECT COUNT(*) FROM dbo.Actividades a WHERE a.ExpedienteId = e.Id) AS totalActividades
+    (SELECT COUNT(*) FROM dbo.Actividades a WHERE a.ExpedienteId = e.Id) AS totalActividades,
+    -- Actividades registradas después de la última reapertura (o desde la apertura
+    -- si nunca se reabrió). Es lo que exige el cierre: >= 1.
+    (SELECT COUNT(*) FROM dbo.Actividades a
+      WHERE a.ExpedienteId = e.Id
+        AND a.Orden > ISNULL((SELECT MAX(h.Orden) FROM dbo.HistorialEstados h
+                               WHERE h.ExpedienteId = e.Id AND h.EstadoAnterior = N'Cerrado'), 0)
+    ) AS actividadesCicloActual,
+    (SELECT COUNT(*) FROM dbo.HistorialEstados h WHERE h.ExpedienteId = e.Id AND h.EstadoNuevo = N'Cerrado') AS totalCierres,
+    (SELECT COUNT(*) FROM dbo.HistorialEstados h WHERE h.ExpedienteId = e.Id AND h.EstadoAnterior = N'Cerrado') AS totalReaperturas
 FROM dbo.Expedientes e;
 GO
 
@@ -124,6 +136,8 @@ SELECT
     h.Fecha        AS fecha,
     CASE WHEN h.EstadoAnterior IS NULL
          THEN N'Apertura del expediente (estado Abierto)'
+         WHEN h.EstadoAnterior = N'Cerrado'
+         THEN N'Reapertura del expediente: Cerrado -> ' + h.EstadoNuevo
          ELSE N'Cambio de estado: ' + h.EstadoAnterior + N' -> ' + h.EstadoNuevo
     END            AS descripcion,
     h.EstadoAnterior AS estadoAnterior,
@@ -264,15 +278,64 @@ BEGIN
 
         IF @Estado IS NULL              THROW 50404, N'El expediente no existe.', 1;
         IF @Estado <> N'En seguimiento' THROW 50409, N'Solo un expediente En seguimiento puede cerrarse.', 1;
-        IF NOT EXISTS (SELECT 1 FROM dbo.Actividades WHERE ExpedienteId = @ExpedienteId)
-            THROW 50422, N'Debe registrar al menos una actividad antes de cerrar el expediente.', 1;
+
+        -- Parte 2: si fue reabierto, la actividad exigida debe ser POSTERIOR a la última reapertura.
+        DECLARE @UltimaReapertura BIGINT =
+            (SELECT MAX(Orden) FROM dbo.HistorialEstados
+              WHERE ExpedienteId = @ExpedienteId AND EstadoAnterior = N'Cerrado');
+        IF NOT EXISTS (SELECT 1 FROM dbo.Actividades
+                        WHERE ExpedienteId = @ExpedienteId AND Orden > ISNULL(@UltimaReapertura, 0))
+        BEGIN
+            IF @UltimaReapertura IS NULL
+                THROW 50422, N'Debe registrar al menos una actividad antes de cerrar el expediente.', 1;
+            ELSE
+                THROW 50422, N'Debe registrar al menos una actividad después de la reapertura antes de volver a cerrar.', 1;
+        END;
         IF @Motivo IS NULL OR @Motivo = N'' THROW 50400, N'El motivo de cierre es obligatorio.', 1;
 
         UPDATE dbo.Expedientes
            SET Estado = N'Cerrado', FechaCierre = SYSDATETIME(), MotivoCierre = @Motivo
          WHERE Id = @ExpedienteId;
+        -- Cada cierre es una fila nueva: un segundo cierre NO reemplaza al anterior.
         INSERT INTO dbo.HistorialEstados (ExpedienteId, EstadoAnterior, EstadoNuevo, Motivo)
         VALUES (@ExpedienteId, N'En seguimiento', N'Cerrado', @Motivo);
+    COMMIT;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK;
+        THROW;
+    END CATCH;
+
+    SELECT * FROM dbo.vw_Expedientes WHERE id = @ExpedienteId;
+END;
+GO
+
+/* Parte 2: Cerrado -> En seguimiento. Conserva id, datos, actividades y los
+   cierres previos (filas de HistorialEstados); agrega el evento de reapertura. */
+CREATE PROCEDURE dbo.sp_ReabrirExpediente
+    @ExpedienteId INT,
+    @Motivo       NVARCHAR(500)
+AS
+BEGIN
+    SET NOCOUNT ON; SET XACT_ABORT ON;
+
+    SET @Motivo = LTRIM(RTRIM(@Motivo));
+
+    BEGIN TRY
+    BEGIN TRAN;
+        DECLARE @Estado NVARCHAR(20);
+        SELECT @Estado = Estado FROM dbo.Expedientes WITH (UPDLOCK, HOLDLOCK) WHERE Id = @ExpedienteId;
+
+        IF @Estado IS NULL       THROW 50404, N'El expediente no existe.', 1;
+        IF @Estado <> N'Cerrado' THROW 50409, N'Solo un expediente Cerrado puede reabrirse.', 1;
+        IF @Motivo IS NULL OR @Motivo = N'' THROW 50400, N'El motivo de reapertura es obligatorio.', 1;
+
+        -- Solo se limpia el cierre VIGENTE; el historial conserva todos los cierres.
+        UPDATE dbo.Expedientes
+           SET Estado = N'En seguimiento', FechaCierre = NULL, MotivoCierre = NULL
+         WHERE Id = @ExpedienteId;
+        INSERT INTO dbo.HistorialEstados (ExpedienteId, EstadoAnterior, EstadoNuevo, Motivo)
+        VALUES (@ExpedienteId, N'Cerrado', N'En seguimiento', @Motivo);
     COMMIT;
     END TRY
     BEGIN CATCH

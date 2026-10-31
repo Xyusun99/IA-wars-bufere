@@ -13,6 +13,8 @@ tags:
     description: Apertura, consulta y búsqueda (Daniel)
   - name: Seguimiento
     description: Actividades, historial, estados y cierre (Jaqui)
+  - name: Reapertura
+    description: Parte 2 - Reabrir expediente Cerrado -> En seguimiento (mavasquez)
 
 paths:
   /health:
@@ -132,6 +134,10 @@ paths:
     post:
       tags: [Seguimiento]
       summary: Cambia En seguimiento -> Cerrado (requiere >= 1 actividad y motivo no vacío)
+      description: |
+        Si el expediente fue reabierto, la actividad exigida debe ser posterior a la
+        última reapertura (campo actividadesCicloActual >= 1). Cada cierre se agrega
+        al historial; un nuevo cierre NO reemplaza los anteriores.
       requestBody:
         required: true
         content:
@@ -151,6 +157,36 @@ paths:
         "404": { $ref: "#/components/responses/NoEncontrado" }
         "409": { $ref: "#/components/responses/Conflicto" }
         "422": { $ref: "#/components/responses/ReglaNegocio" }
+
+  /expedientes/{id}/reapertura:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    post:
+      tags: [Reapertura]
+      summary: Cambia Cerrado -> En seguimiento (motivo obligatorio)
+      description: |
+        Conserva id, datos, actividades y todos los cierres previos (con fecha y motivo)
+        en el historial, y agrega un evento ESTADO "Reapertura" con fecha, hora y motivo.
+        fechaCierre y motivoCierre del expediente vuelven a null (representan el cierre vigente).
+        409 si el expediente está Abierto o En seguimiento.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [motivo]
+              properties:
+                motivo: { type: string, maxLength: 500, example: "Se recibió nueva información ficticia" }
+      responses:
+        "200":
+          description: OK (estado En seguimiento)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Expediente" }
+        "400": { $ref: "#/components/responses/ErrorValidacion" }
+        "404": { $ref: "#/components/responses/NoEncontrado" }
+        "409": { $ref: "#/components/responses/Conflicto" }
 
 components:
   parameters:
@@ -189,9 +225,14 @@ components:
         categoria:        { $ref: "#/components/schemas/Categoria" }
         estado:           { $ref: "#/components/schemas/Estado" }
         fechaApertura:    { type: string, format: date-time }
-        fechaCierre:      { type: string, format: date-time, nullable: true }
-        motivoCierre:     { type: string, nullable: true }
+        fechaCierre:      { type: string, format: date-time, nullable: true, description: Cierre vigente (null si se reabrió) }
+        motivoCierre:     { type: string, nullable: true, description: Cierre vigente (null si se reabrió) }
         totalActividades: { type: integer }
+        actividadesCicloActual:
+          type: integer
+          description: Actividades desde la última reapertura (o desde la apertura). Cerrar exige >= 1.
+        totalCierres:     { type: integer, description: Cierres registrados en el historial }
+        totalReaperturas: { type: integer }
 
     NuevaActividad:
       type: object

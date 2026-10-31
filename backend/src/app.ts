@@ -4,6 +4,7 @@ import { getPool } from './config/db.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 import expedientesRoutes from './routes/expedientes.routes.js';
 import seguimientoRoutes from './routes/seguimiento.routes.js';
+import reaperturaRoutes from './routes/reapertura.routes.js';
 
 export const app = express();
 
@@ -23,5 +24,6 @@ app.get('/api/health', async (_req, res) => {
 // Las rutas ya están montadas: cada responsable solo edita su archivo de rutas.
 app.use('/api/expedientes', expedientesRoutes);
 app.use('/api/expedientes', seguimientoRoutes);
+app.use('/api/expedientes', reaperturaRoutes); // Parte 2 (mavasquez)
 
 app.use(errorHandler);
